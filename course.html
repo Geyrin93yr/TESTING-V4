@@ -1,0 +1,241 @@
+<!-- This page displays the selected course, assignments, score, and leaderboard. -->
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">คลาสเรียน — Baan Programmer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="course-page">
+<div class="app-page">
+  <div class="app-shell">
+    <div class="course-layout">
+ 
+      <!-- Score / navigation sidebar -->
+      <aside class="leaderboard collapsed" id="leaderboard">
+        <div class="leaderboard-inner">
+          <div class="score-block" id="scoreBlock">
+            <div class="score-block-label">คะแนนของคุณ</div>
+            <div class="score-bar">
+              <div class="score-bar-fill" id="myScoreFill" style="width:10%"></div>
+              <span class="score-bar-text" id="myScoreText">10%</span>
+            </div>
+          </div>
+ 
+          <div class="rank-list" id="rankList"></div>
+        </div>
+        <div class="leaderboard-home">
+          <a class="home-btn" href="main.html" title="กลับหน้า Home">⌂ <span>กลับ Home</span></a>
+        </div>
+      </aside>
+ 
+      <!-- Main content -->
+      <div class="course-main">
+        <div class="course-topbar">
+          <div class="course-nav-buttons">
+            <a class="icon-btn back-btn" href="main.html" title="กลับ Home" aria-label="กลับ Home">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+            </a>
+            <button class="icon-btn hamburger-btn" type="button" onclick="toggleLeaderboard()" title="เปิดเมนูคะแนน" aria-label="เปิดเมนูคะแนน">
+              <span></span><span></span><span></span>
+            </button>
+          </div>
+          <div class="class-name-chip" id="className">Python</div>
+          <div class="course-actions">
+            <a class="icon-btn" href="chat.html" title="แชท">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </a>
+            <div class="icon-btn" onclick="window.open('https://meet.google.com/new', '_blank')" title="เริ่มวิดีโอคอล">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-4v12l-6-4"/></svg>
+            </div>
+          </div>
+        </div>
+ 
+        <div class="app-body">
+          <div class="section-row">
+            <div class="section-label">งานที่ได้รับมอบหมาย</div>
+            <button class="btn-add-assignment" id="addAssignmentBtn" type="button" style="display:none" onclick="openAddModal()">＋ เพิ่ม assignment</button>
+          </div>
+          <div class="assignment-list" id="assignmentList"></div>
+        </div>
+      </div>
+ 
+    </div>
+  </div>
+</div>
+
+<!-- Add assignment modal (tutor only) -->
+<div class="modal-overlay" id="addModal">
+  <div class="join-modal">
+    <h2>เพิ่ม assignment</h2>
+    <div class="join-modal-section">
+      <h3>ชื่อ assignment</h3>
+      <input type="text" id="newAssignmentName" placeholder="เช่น การบ้าน 4" oninput="checkAddForm()">
+    </div>
+    <div class="join-modal-section">
+      <h3>รายละเอียด <span class="optional">(ไม่บังคับ)</span></h3>
+      <textarea id="newAssignmentDesc" rows="3" placeholder="อธิบายโจทย์หรือเงื่อนไขการส่งงาน"></textarea>
+    </div>
+    <div class="join-modal-actions">
+      <span class="link" onclick="closeAddModal()">ยกเลิก</span>
+      <button class="link-btn" id="addConfirmBtn" disabled onclick="confirmAddAssignment()">เพิ่ม</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+<script>
+  const COURSES = {
+    python: {
+      name: 'Python',
+      tutor: 'พี่แนน',
+      myScore: 10,
+      leaderboard: [
+        { place: 1, name: 'น้องฟ้า', pct: 98 },
+        { place: 2, name: 'น้องนนท์', pct: 95 },
+        { place: 3, name: 'น้องมิ้นท์', pct: 92 },
+        { place: 4, name: 'น้องพีท', pct: 89 },
+        { place: 5, name: 'น้องเจน', pct: 86 },
+        { place: 6, name: 'น้องบอส', pct: 83 },
+        { place: 7, name: 'น้องแพรว', pct: 80 },
+        { place: 8, name: 'น้องกาย', pct: 77 },
+        { place: 9, name: 'น้องน้ำ', pct: 74 },
+        { place: 10, name: 'น้องไอซ์', pct: 71 },
+        { place: 11, name: 'น้องมุก', pct: 68 },
+        { place: 12, name: 'น้องต้น', pct: 65 },
+        { place: 13, name: 'น้องฟิล์ม', pct: 62 },
+        { place: 14, name: 'น้องพลอย', pct: 59 },
+        { place: 15, name: 'น้องอาร์ม', pct: 56 },
+        { place: 16, name: 'น้องบีม', pct: 53 },
+        { place: 17, name: 'น้องเนย', pct: 50 },
+        { place: 18, name: 'น้องโอ๊ต', pct: 47 },
+        { place: 19, name: 'น้องกอล์ฟ', pct: 44 },
+        { place: 20, name: 'น้องข้าว', pct: 41 }
+      ]
+    }
+  };
+
+  function renderCourse() {
+    const params = new URLSearchParams(location.search);
+    const id = params.get('c') || localStorage.getItem('baanProgrammerCourseId') || 'python';
+    const course = COURSES[id] || COURSES.python;
+    localStorage.setItem('baanProgrammerCourseId', COURSES[id] ? id : 'python');
+
+    document.getElementById('pageTitle').textContent = course.name + ' — Baan Programmer';
+    document.getElementById('className').textContent = course.name;
+
+    document.getElementById('myScoreFill').style.width = course.myScore + '%';
+    document.getElementById('myScoreText').textContent = course.myScore + '%';
+
+    const rankList = document.getElementById('rankList');
+    rankList.innerHTML = course.leaderboard.map(r => `
+      <div class="rank-row">
+        <div class="rank-info">
+          <span class="rank-place">${r.place}</span>
+          <span class="rank-name">${r.name}</span>
+          <span class="rank-score">${r.pct}%</span>
+        </div>
+        <div class="rank-bar"><div class="rank-bar-fill" style="width:${r.pct}%;"></div></div>
+      </div>
+    `).join('');
+
+    // งานที่ได้รับมอบหมาย: นักเรียนเห็นสถานะของตัวเอง / ติวเตอร์เห็นจำนวนคนที่ส่งแล้ว
+    const tutor = isTutor();
+    if (tutor) {
+      document.getElementById('scoreBlock').style.display = 'none';
+      document.getElementById('addAssignmentBtn').style.display = 'inline-flex';
+    }
+    renderAssignments(COURSES[id] ? id : 'python');
+  }
+
+  function currentCourseId() {
+    return localStorage.getItem('baanProgrammerCourseId') || 'python';
+  }
+
+  function renderAssignments(courseId) {
+    const tutor = isTutor();
+    const list = document.getElementById('assignmentList');
+    const items = getAssignments(courseId);
+    if (!items.length) {
+      list.innerHTML = '<div class="empty-note">ยังไม่มีงานที่มอบหมาย</div>';
+      return;
+    }
+    list.innerHTML = items.map(a => {
+      let status = a.status, note = a.note;
+      if (tutor) {
+        const n = a.submitted || 0;
+        status = n >= CLASS_SIZE ? 'green' : (n > 0 ? 'yellow' : 'red');
+        note = 'ส่งแล้ว ' + n + '/' + CLASS_SIZE + ' คน';
+      }
+      const href = 'assignment.html?c=' + encodeURIComponent(courseId) + '&id=' + encodeURIComponent(a.id);
+      return `
+  <div class="assignment-card" onclick="location.href='${href}'">
+    <span class="status-dot ${status}"></span>
+    <span class="assignment-title">${escapeHtml(a.name)}</span>
+    <span class="assignment-note">${escapeHtml(note)}</span>
+  </div>`;
+    }).join('');
+  }
+
+  /* ----- ติวเตอร์: เพิ่ม assignment ----- */
+  function openAddModal() {
+    document.getElementById('addModal').classList.add('show');
+    const input = document.getElementById('newAssignmentName');
+    input.value = '';
+    document.getElementById('newAssignmentDesc').value = '';
+    checkAddForm();
+    input.focus();
+  }
+
+  function closeAddModal() {
+    document.getElementById('addModal').classList.remove('show');
+  }
+
+  function checkAddForm() {
+    document.getElementById('addConfirmBtn').disabled = document.getElementById('newAssignmentName').value.trim().length === 0;
+  }
+
+  function confirmAddAssignment() {
+    const name = document.getElementById('newAssignmentName').value.trim();
+    if (!name) return;
+    const desc = document.getElementById('newAssignmentDesc').value.trim();
+    const courseId = currentCourseId();
+    const items = getAssignments(courseId);
+    items.unshift({ id: 'a' + Date.now(), name, desc, status: 'red', note: 'ยังไม่ได้ส่ง', submitted: 0, grader: '' });
+    saveAssignments(courseId, items);
+    renderAssignments(courseId);
+    closeAddModal();
+    showToast('เพิ่ม assignment แล้ว');
+  }
+
+  function toggleLeaderboard() {
+    const board = document.getElementById('leaderboard');
+    if (!board) return;
+    board.classList.toggle('collapsed');
+  }
+
+  document.addEventListener('DOMContentLoaded', renderCourse);
+  document.addEventListener('click', function (e) {
+  const board = document.getElementById('leaderboard');
+  const hamburger = document.querySelector('.hamburger-btn');
+
+  if (!board || !hamburger) return;
+
+  
+  if (!board.classList.contains('collapsed')) {
+
+    
+    if (board.contains(e.target)) return;
+
+    
+    if (hamburger.contains(e.target)) return;
+
+    // คลิกพื้นที่อื่น → ปิด
+    board.classList.add('collapsed');
+  }
+});
+</script>
+</body>
+</html>

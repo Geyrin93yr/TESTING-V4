@@ -1,0 +1,394 @@
+// This file contains shared JavaScript logic for authentication, navigation, UI interactions, and local storage.
+/* Baan Programmer - shared app logic */
+const STORAGE = {
+  loggedIn: 'Baan ProgrammerLoggedIn',
+  email: 'Baan ProgrammerEmail',
+  name: 'Baan ProgrammerName',
+  photo: 'Baan ProgrammerPhoto',
+  notifications: 'Baan ProgrammerNotifications',
+  assignments: 'Baan ProgrammerAssignments'
+};
+
+/* ---------- Role (student / tutor) ----------
+   อีเมลที่ขึ้นต้นด้วย "tutorbp" = ติวเตอร์ ที่เหลือ = นักเรียน */
+const TUTOR_EMAIL_PREFIX = 'tutorbp';
+
+function getRole(email) {
+  const e = (email === undefined ? getEmail() : email || '').trim().toLowerCase();
+  return e.startsWith(TUTOR_EMAIL_PREFIX) ? 'tutor' : 'student';
+}
+
+function isTutor() { return getRole() === 'tutor'; }
+
+function homePage(role) {
+  return (role || getRole()) === 'tutor' ? 'tutor.html' : 'main.html';
+}
+
+/* ---------- Assignments (เก็บใน localStorage ใช้ร่วมกันระหว่างมุมติวเตอร์/นักเรียน) ---------- */
+const CLASS_SIZE = 20;
+
+const DEFAULT_ASSIGNMENTS = {
+  python: [
+    { id: 'hw3', name: 'การบ้าน 3', desc: '', status: 'red',    note: 'ยังไม่ได้ส่ง', submitted: 8,  grader: '' },
+    { id: 'hw2', name: 'การบ้าน 2', desc: '', status: 'yellow', note: 'รอตรวจ',       submitted: 15, grader: '' },
+    { id: 'hw1', name: 'การบ้าน 1', desc: '', status: 'green',  note: 'ตรวจแล้ว',     submitted: 20, grader: '' }
+  ]
+};
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function readAssignmentStore() {
+  try { return JSON.parse(localStorage.getItem(STORAGE.assignments)) || {}; }
+  catch (err) { return {}; }
+}
+
+function getAssignments(courseId) {
+  const store = readAssignmentStore();
+  if (Array.isArray(store[courseId])) return store[courseId];
+  return JSON.parse(JSON.stringify(DEFAULT_ASSIGNMENTS[courseId] || []));
+}
+
+function saveAssignments(courseId, list) {
+  const store = readAssignmentStore();
+  store[courseId] = list;
+  localStorage.setItem(STORAGE.assignments, JSON.stringify(store));
+}
+
+let toastTimer;
+let dropdownOpen = false;
+
+function $(id) { return document.getElementById(id); }
+
+function showToast(msg) {
+  const t = $('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function toggleDrawer(open) {
+  const drawer = $('drawer');
+  const overlay = $('drawerOverlay');
+  if (drawer) drawer.classList.toggle('show', open);
+  if (overlay) overlay.classList.toggle('show', open);
+}
+
+function toggleDropdown() {
+  const dd = $('profileDropdown');
+  if (!dd) return;
+  dropdownOpen = !dropdownOpen;
+  dd.classList.toggle('show', dropdownOpen);
+}
+
+function logout() {
+  localStorage.removeItem(STORAGE.loggedIn);
+  window.location.href = 'index.html';
+}
+
+function requireLogin() {
+  const publicPages = ['', 'index.html', 'signup.html', 'forgot.html'];
+  const page = location.pathname.split('/').pop() || '';
+  const loggedIn = localStorage.getItem(STORAGE.loggedIn) === 'true';
+  if (!publicPages.includes(page) && !loggedIn) {
+    window.location.href = 'index.html';
+    return false;
+  }
+  // กันเข้าผิดหน้า: นักเรียนเข้า tutor.html ไม่ได้ / ติวเตอร์เข้า main.html ไม่ได้
+  if (loggedIn && page === 'main.html' && isTutor()) { window.location.replace('tutor.html'); return false; }
+  if (loggedIn && page === 'tutor.html' && !isTutor()) { window.location.replace('main.html'); return false; }
+  return true;
+}
+
+// ปุ่มกลับ Home ทุกหน้าให้ไปหน้าหลักตามโรล
+function applyRoleNav() {
+  if (!isTutor()) return;
+  document.querySelectorAll('a[href="main.html"]').forEach(a => a.setAttribute('href', 'tutor.html'));
+}
+
+function getName() {
+  return localStorage.getItem(STORAGE.name) || 'เกย์ริน';
+}
+
+function getEmail() {
+  return localStorage.getItem(STORAGE.email) || '';
+}
+
+function getInitial(name) {
+  return (name || 'G').trim().charAt(0).toUpperCase() || 'G';
+}
+
+function loadProfile() {
+  const name = getName();
+  const email = getEmail();
+  const photo = localStorage.getItem(STORAGE.photo);
+
+  const nameDisplay = $('nameDisplay');
+  const nameInput = $('nameInput');
+  const emailInput = $('profileEmail');
+  const avatarLetter = $('avatarLetter');
+  const avatarImg = $('avatarImg');
+
+  document.querySelectorAll('[data-my-name]').forEach(el => el.textContent = name);
+
+  if (isTutor()) {
+    const roleLabel = $('roleLabel');
+    if (roleLabel) roleLabel.textContent = 'ติวเตอร์';
+    const scoreCard = $('scoreCard');
+    if (scoreCard) scoreCard.style.display = 'none';
+  }
+
+  if (nameDisplay) nameDisplay.textContent = name;
+  if (nameInput) nameInput.value = name;
+  if (emailInput) emailInput.value = email;
+
+  if (avatarLetter) avatarLetter.textContent = getInitial(name);
+  document.querySelectorAll('.profile-chip .avatar').forEach(a => a.textContent = getInitial(name));
+
+  if (photo && avatarImg && avatarLetter) {
+    avatarImg.src = photo;
+    avatarImg.style.display = 'block';
+    avatarLetter.style.display = 'none';
+  }
+}
+
+function setupLogin() {
+  const form = $('loginForm');
+  if (!form) return;
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const email = $('loginEmail')?.value.trim();
+    const pass = $('loginPass')?.value || '';
+    if (!email || !pass) return;
+
+    localStorage.setItem(STORAGE.loggedIn, 'true');
+    localStorage.setItem(STORAGE.email, email);
+    if (!localStorage.getItem(STORAGE.name)) {
+      localStorage.setItem(STORAGE.name, email.split('@')[0] || 'เกย์ริน');
+    }
+    window.location.href = homePage(getRole(email));
+  });
+}
+
+function setupSignup() {
+  const form = $('signupForm');
+  if (!form) return;
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const name = $('name')?.value.trim() || '';
+    const email = $('email')?.value.trim() || '';
+    const p1 = $('pass')?.value || '';
+    const p2 = $('pass2')?.value || '';
+    const error = $('signupError');
+    const fail = msg => {
+      if (error) { error.textContent = msg; error.style.display = 'block'; }
+      showToast(msg);
+    };
+    if (error) error.style.display = 'none';
+    if (!name || !email || !p1 || !p2) { fail('กรุณากรอกข้อมูลให้ครบทุกช่อง'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { fail('กรุณากรอกอีเมลให้ถูกต้อง'); return; }
+    if (p1.length < 6) { fail('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'); return; }
+    if (p1 !== p2) { fail('รหัสผ่านไม่ตรงกัน กรุณาลองใหม่'); return; }
+
+    try {
+      localStorage.setItem(STORAGE.loggedIn, 'true');
+      localStorage.setItem(STORAGE.email, email);
+      localStorage.setItem(STORAGE.name, name);
+      window.location.assign(homePage(getRole(email)));
+    } catch (err) {
+      fail('ไม่สามารถบันทึกบัญชีในเบราว์เซอร์ได้ กรุณาเปิดเว็บผ่าน Chrome/Edge แล้วลองใหม่');
+      console.error(err);
+    }
+  });
+}
+
+function setupForgot() {
+  const form = $('forgotForm');
+  if (!form) return;
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const email = $('femail')?.value.trim();
+    if (!email) return;
+    showToast('ส่งรหัสยืนยันไปยังอีเมลแล้ว');
+    form.reset();
+  });
+}
+
+function setupContact() {
+  const form = $('contactForm');
+  if (!form) return;
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    showToast('ส่งข้อความเรียบร้อยแล้ว');
+    form.reset();
+  });
+}
+
+function setupReport() {
+  const form = $('reportForm');
+  if (!form) return;
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    showToast('ส่งรายงานเรียบร้อยแล้ว');
+    form.reset();
+  });
+}
+/*on click*/
+function goToCourse(id) {
+  localStorage.setItem('baanProgrammerCourseId', id);
+  window.location.href = 'course.html?c=' + encodeURIComponent(id);
+}
+
+function openJoinModal() {
+  const modal = $('joinModal');
+  if (!modal) return;
+  modal.classList.add('show');
+  $('classCodeInput')?.focus();
+}
+
+function closeJoinModal() {
+  $('joinModal')?.classList.remove('show');
+}
+
+function checkClassCode() {
+  const input = $('classCodeInput');
+  const btn = $('joinConfirmBtn');
+  if (input && btn) btn.disabled = input.value.trim().length === 0;
+}
+
+function confirmJoin() {
+  const input = $('classCodeInput');
+  const code = input?.value.trim();
+  if (!code) return;
+  closeJoinModal();
+  showToast('เข้าร่วมชั้นเรียนแล้ว');
+  if (input) input.value = '';
+  const btn = $('joinConfirmBtn');
+  if (btn) btn.disabled = true;
+}
+
+function toggleEditName() {
+  const display = $('nameDisplay');
+  const input = $('nameInput');
+  const btn = $('editNameBtn');
+  if (!display || !input || !btn) return;
+
+  const editing = input.style.display !== 'none';
+  if (!editing) {
+    display.style.display = 'none';
+    input.style.display = 'inline-block';
+    input.focus();
+    input.select();
+  } else {
+    const newName = input.value.trim() || getName();
+    localStorage.setItem(STORAGE.name, newName);
+    display.textContent = newName;
+    document.querySelectorAll('[data-my-name]').forEach(el => el.textContent = newName);
+    input.value = newName;
+    display.style.display = 'inline-block';
+    input.style.display = 'none';
+    document.querySelectorAll('.profile-chip .avatar').forEach(a => a.textContent = getInitial(newName));
+    const avatarLetter = $('avatarLetter');
+    if (avatarLetter) avatarLetter.textContent = getInitial(newName);
+    showToast('บันทึกชื่อแล้ว');
+  }
+}
+
+function handlePhotoChange(event) {
+  const file = event.target.files?.[0];
+  if (!file || !file.type.startsWith('image/')) return;
+  if (file.size > 3 * 1024 * 1024) {
+    showToast('รูปต้องมีขนาดไม่เกิน 3 MB');
+    event.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    localStorage.setItem(STORAGE.photo, dataUrl);
+    const img = $('avatarImg');
+    const letter = $('avatarLetter');
+    if (img) { img.src = dataUrl; img.style.display = 'block'; }
+    if (letter) letter.style.display = 'none';
+    showToast('เปลี่ยนรูปโปรไฟล์แล้ว');
+  };
+  reader.readAsDataURL(file);
+}
+
+function setupSettings() {
+  const toggle = $('notificationToggle');
+  if (!toggle) return;
+  toggle.checked = localStorage.getItem(STORAGE.notifications) !== 'false';
+  toggle.addEventListener('change', () => {
+    localStorage.setItem(STORAGE.notifications, String(toggle.checked));
+    showToast(toggle.checked ? 'เปิดการแจ้งเตือนแล้ว' : 'ปิดการแจ้งเตือนแล้ว');
+  });
+}
+function openChatRoom(name){
+  const listScreen = document.getElementById('chatListScreen');
+  const roomScreen = document.getElementById('chatRoomScreen');
+  if(!listScreen || !roomScreen) return;
+ 
+  document.getElementById('roomName').textContent = name;
+  document.getElementById('roomAvatar').textContent = name.trim().charAt(0);
+ 
+  listScreen.classList.remove('active');
+  roomScreen.classList.add('active');
+}
+ 
+function closeChatRoom(){
+  const room = document.getElementById('chatRoomScreen');
+  const list = document.getElementById('chatListScreen');
+  if (!room || !list) return;
+  room.classList.remove('active');
+  list.classList.add('active');
+}
+ 
+function sendChatMessage(){
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if(!text) return;
+ 
+  const thread = document.getElementById('chatThread');
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble msg-out';
+  bubble.textContent = text;
+  thread.appendChild(bubble);
+  thread.scrollTop = thread.scrollHeight;
+ 
+  input.value = '';
+}
+ 
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.profile-chip') && !e.target.closest('.dropdown')) {
+    dropdownOpen = false;
+    const dd = $('profileDropdown');
+    if (dd) dd.classList.remove('show');
+  }
+  if (e.target.classList && e.target.classList.contains('modal-overlay')) e.target.classList.remove('show');
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeJoinModal();
+    document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'));
+    toggleDrawer(false);
+  }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!requireLogin()) return;
+  applyRoleNav();
+  loadProfile();
+  setupLogin();
+  setupSignup();
+  setupForgot();
+  setupContact();
+  setupReport();
+  setupSettings();
+  checkClassCode();
+});
